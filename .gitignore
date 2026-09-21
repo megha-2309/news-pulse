@@ -1,0 +1,29 @@
+# Python
+scraper/.venv/
+__pycache__/
+*.pyc
+
+# Node
+backend/node_modules/
+frontend/node_modules/
+
+# Next.js
+frontend/.next/
+frontend/out/
+
+# Environment files
+.env
+.env.local
+*.env
+
+# SQLite
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
