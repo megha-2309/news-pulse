@@ -65,4 +65,4 @@ ENV PORT=10000
 EXPOSE 10000
 
 
-CMD ["node", "backend/server.js"]
+CMD ["sh", "-c", "python scraper/init_db.py && node backend/server.js"]

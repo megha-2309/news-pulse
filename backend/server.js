@@ -1,43 +1,22 @@
-const express =
-  require("express");
+const express = require("express");
 
+const cors = require("cors");
 
-const cors =
-  require("cors");
+const db = require("./database");
 
+const { startIngestionJob, getJobStatus } = require("./jobs");
 
-const db =
-  require("./database");
+const app = express();
 
-
-const {
-  startIngestionJob,
-  getJobStatus,
-} = require("./jobs");
-
-
-const app =
-  express();
-
-
-const PORT =
-  process.env.PORT ||
-  4000;
-
+const PORT = process.env.PORT || 4000;
 
 app.use(
   cors({
-    origin:
-      process.env.FRONTEND_URL ||
-      "http://localhost:3000",
-  })
+    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  }),
 );
 
-
-app.use(
-  express.json()
-);
-
+app.use(express.json());
 
 /*
 |--------------------------------------------------------------------------
@@ -45,19 +24,12 @@ app.use(
 |--------------------------------------------------------------------------
 */
 
-app.get(
-  "/health",
-  (req, res) => {
-
-    res.json({
-      status: "ok",
-      service:
-        "news-pulse-api",
-    });
-
-  }
-);
-
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "news-pulse-api",
+  });
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -65,15 +37,11 @@ app.get(
 |--------------------------------------------------------------------------
 */
 
-app.get(
-  "/clusters",
-  (req, res) => {
-
-    try {
-
-      const clusters =
-        db.prepare(
-          `
+app.get("/clusters", (req, res) => {
+  try {
+    const clusters = db
+      .prepare(
+        `
           SELECT
             c.id,
             c.label,
@@ -88,32 +56,19 @@ app.get(
             ON a.cluster_id = c.id
           GROUP BY c.id
           ORDER BY startTime DESC
-          `
-        ).all();
+          `,
+      )
+      .all();
 
+    res.json(clusters);
+  } catch (error) {
+    console.error(error);
 
-      res.json(
-        clusters
-      );
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-
-      res.status(500)
-        .json({
-          error:
-            "Failed to fetch clusters",
-        });
-
-    }
-
+    res.status(500).json({
+      error: "Failed to fetch clusters",
+    });
   }
-);
-
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -121,41 +76,29 @@ app.get(
 |--------------------------------------------------------------------------
 */
 
-app.get(
-  "/clusters/:id",
-  (req, res) => {
-
-    try {
-
-      const cluster =
-        db.prepare(
-          `
+app.get("/clusters/:id", (req, res) => {
+  try {
+    const cluster = db
+      .prepare(
+        `
           SELECT
             id,
             label
           FROM clusters
           WHERE id = ?
-          `
-        ).get(
-          req.params.id
-        );
+          `,
+      )
+      .get(req.params.id);
 
+    if (!cluster) {
+      return res.status(404).json({
+        error: "Cluster not found",
+      });
+    }
 
-      if (!cluster) {
-
-        return res
-          .status(404)
-          .json({
-            error:
-              "Cluster not found",
-          });
-
-      }
-
-
-      const articles =
-        db.prepare(
-          `
+    const articles = db
+      .prepare(
+        `
           SELECT
             id,
             title,
@@ -169,35 +112,22 @@ app.get(
           WHERE cluster_id = ?
           ORDER BY
             published_at ASC
-          `
-        ).all(
-          req.params.id
-        );
+          `,
+      )
+      .all(req.params.id);
 
+    res.json({
+      ...cluster,
+      articles,
+    });
+  } catch (error) {
+    console.error(error);
 
-      res.json({
-        ...cluster,
-        articles,
-      });
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-
-      res.status(500)
-        .json({
-          error:
-            "Failed to fetch cluster",
-        });
-
-    }
-
+    res.status(500).json({
+      error: "Failed to fetch cluster",
+    });
   }
-);
-
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -205,48 +135,28 @@ app.get(
 |--------------------------------------------------------------------------
 */
 
-app.get(
-  "/sources",
-  (req, res) => {
-
-    try {
-
-      const sources =
-        db.prepare(
-          `
+app.get("/sources", (req, res) => {
+  try {
+    const sources = db
+      .prepare(
+        `
           SELECT DISTINCT
             source
           FROM articles
           ORDER BY source ASC
-          `
-        ).all();
+          `,
+      )
+      .all();
 
+    res.json(sources.map((item) => item.source));
+  } catch (error) {
+    console.error(error);
 
-      res.json(
-        sources.map(
-          item =>
-            item.source
-        )
-      );
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-
-      res.status(500)
-        .json({
-          error:
-            "Failed to fetch sources",
-        });
-
-    }
-
+    res.status(500).json({
+      error: "Failed to fetch sources",
+    });
   }
-);
-
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -254,15 +164,11 @@ app.get(
 |--------------------------------------------------------------------------
 */
 
-app.get(
-  "/timeline",
-  (req, res) => {
-
-    try {
-
-      const timeline =
-        db.prepare(
-          `
+app.get("/timeline", (req, res) => {
+  try {
+    const timeline = db
+      .prepare(
+        `
           SELECT
             c.id,
             c.label,
@@ -277,67 +183,37 @@ app.get(
             ON a.cluster_id = c.id
           GROUP BY c.id
           ORDER BY startTime ASC
-          `
-        ).all();
+          `,
+      )
+      .all();
 
+    const formatted = timeline.map((cluster) => {
+      const intensity = Math.min(100, cluster.articleCount * 15);
 
-      const formatted =
-        timeline.map(
-          cluster => {
+      return {
+        id: cluster.id,
 
-            const intensity =
-              Math.min(
-                100,
-                cluster.articleCount
-                  * 15
-              );
+        label: cluster.label,
 
+        startTime: cluster.startTime,
 
-            return {
-              id:
-                cluster.id,
+        endTime: cluster.endTime,
 
-              label:
-                cluster.label,
+        articleCount: cluster.articleCount,
 
-              startTime:
-                cluster.startTime,
+        intensity,
+      };
+    });
 
-              endTime:
-                cluster.endTime,
+    res.json(formatted);
+  } catch (error) {
+    console.error(error);
 
-              articleCount:
-                cluster.articleCount,
-
-              intensity,
-            };
-
-          }
-        );
-
-
-      res.json(
-        formatted
-      );
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-
-      res.status(500)
-        .json({
-          error:
-            "Failed to fetch timeline",
-        });
-
-    }
-
+    res.status(500).json({
+      error: "Failed to fetch timeline",
+    });
   }
-);
-
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -345,41 +221,22 @@ app.get(
 |--------------------------------------------------------------------------
 */
 
-app.post(
-  "/ingest/trigger",
-  (req, res) => {
+app.post("/ingest/trigger", (req, res) => {
+  try {
+    const jobId = startIngestionJob();
 
-    try {
+    res.status(202).json({
+      jobId,
+      status: "running",
+    });
+  } catch (error) {
+    console.error(error);
 
-      const jobId =
-        startIngestionJob();
-
-
-      res.status(202)
-        .json({
-          jobId,
-          status:
-            "running",
-        });
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-
-      res.status(500)
-        .json({
-          error:
-            "Failed to start ingestion",
-        });
-
-    }
-
+    res.status(500).json({
+      error: "Failed to start ingestion",
+    });
   }
-);
-
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -387,38 +244,21 @@ app.post(
 |--------------------------------------------------------------------------
 */
 
-app.get(
-  "/ingest/status/:jobId",
-  (req, res) => {
+app.get("/ingest/status/:jobId", (req, res) => {
+  const job = getJobStatus(req.params.jobId);
 
-    const job =
-      getJobStatus(
-        req.params.jobId
-      );
-
-
-    if (!job) {
-
-      return res
-        .status(404)
-        .json({
-          error:
-            "Job not found",
-        });
-
-    }
-
-
-    res.json({
-      jobId:
-        req.params.jobId,
-
-      ...job,
+  if (!job) {
+    return res.status(404).json({
+      error: "Job not found",
     });
-
   }
-);
 
+  res.json({
+    jobId: req.params.jobId,
+
+    ...job,
+  });
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -426,28 +266,13 @@ app.get(
 |--------------------------------------------------------------------------
 */
 
-app.use(
-  (
-    error,
-    req,
-    res,
-    next
-  ) => {
+app.use((error, req, res, next) => {
+  console.error(error);
 
-    console.error(
-      error
-    );
-
-
-    res.status(500)
-      .json({
-        error:
-          "Internal server error",
-      });
-
-  }
-);
-
+  res.status(500).json({
+    error: "Internal server error",
+  });
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -455,14 +280,6 @@ app.use(
 |--------------------------------------------------------------------------
 */
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-
-    console.log(
-      `News Pulse API running on port ${PORT}`
-    );
-
-  }
-);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`News Pulse API running on port ${PORT}`);
+});
