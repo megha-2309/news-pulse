@@ -1,7 +1,3 @@
-
-
-
-
 import ClusterCard from "./ClusterCard";
 
 export default function Timeline({
@@ -12,17 +8,13 @@ export default function Timeline({
   if (!timeline || timeline.length === 0) {
     return (
       <section className="timelineSection">
-        <div className="timelineEmpty">
-          No news clusters available.
-        </div>
+        <div className="timelineEmpty">No news clusters available.</div>
       </section>
     );
   }
 
   const orderedTimeline = [...timeline].sort(
-    (a, b) =>
-      new Date(a.startTime).getTime() -
-      new Date(b.startTime).getTime()
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
   );
 
   return (
@@ -33,9 +25,7 @@ export default function Timeline({
           <h2>Topic activity over time</h2>
         </div>
 
-        <span className="timelineCount">
-          {orderedTimeline.length} Topics
-        </span>
+        <span className="timelineCount">{orderedTimeline.length} Topics</span>
       </div>
 
       <div className="timelineTopicGrid">
@@ -44,11 +34,10 @@ export default function Timeline({
             key={cluster.id}
             cluster={cluster}
             onClick={onClusterClick}
-                  selected={cluster.id === selectedClusterId}
+            selected={cluster.id === selectedClusterId}
           />
         ))}
       </div>
     </section>
   );
 }
-
