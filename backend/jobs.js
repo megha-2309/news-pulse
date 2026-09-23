@@ -54,11 +54,10 @@ function startIngestionJob() {
     );
 
 
-  const pythonCommand =
-    process.platform === "win32"
-      ? "python"
-      : "python3";
-
+const pythonCommand =
+  process.platform === "win32"
+    ? path.join(scraperDirectory, ".venv", "Scripts", "python.exe")
+    : path.join(scraperDirectory, ".venv", "bin", "python");
 
   const pythonProcess =
     spawn(

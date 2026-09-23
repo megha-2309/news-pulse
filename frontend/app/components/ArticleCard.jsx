@@ -1,5 +1,6 @@
 export default function ArticleCard({
   article,
+  searchQuery = "",
 }) {
   return (
     <article className="article">
@@ -7,7 +8,7 @@ export default function ArticleCard({
       <div>
 
         <span className="articleSource">
-          {article.source}
+          {highlightMatches(article.source, searchQuery)}
         </span>
 
         <span className="articleDate">
@@ -18,12 +19,12 @@ export default function ArticleCard({
 
 
       <h3>
-        {article.title}
+        {highlightMatches(article.title, searchQuery)}
       </h3>
 
 
       <p>
-        {article.summary}
+        {highlightMatches(article.summary, searchQuery)}
       </p>
 
 
@@ -42,4 +43,30 @@ export default function ArticleCard({
 
 function formatDate(value) {
   return new Date(value).toLocaleString();
+}
+
+function highlightMatches(text = "", query = "") {
+  const trimmedQuery = query.trim();
+
+  if (!trimmedQuery) {
+    return text;
+  }
+
+  const escapedQuery = trimmedQuery.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+  const parts = text.split(
+    new RegExp(`(${escapedQuery})`, "gi")
+  );
+
+  return parts.map((part, index) =>
+    part.toLowerCase() === trimmedQuery.toLowerCase() ? (
+      <mark className="searchHighlight" key={`${part}-${index}`}>
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
 }

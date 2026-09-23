@@ -43,11 +43,11 @@ MIN_SHARED_WORDS = int(
 )
 
 
-# Maximum number of RSS articles to process
-# from each feed during one run.
+# Maximum number of RSS articles to process from each feed.
+# Zero means process every article currently provided by the feed.
 MAX_ARTICLES_PER_FEED = int(
     os.getenv(
         "MAX_ARTICLES_PER_FEED",
-        "20"
+        "0"
     )
 )

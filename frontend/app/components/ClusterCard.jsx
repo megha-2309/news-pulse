@@ -1,38 +1,24 @@
+
 export default function ClusterCard({
   cluster,
   onClick,
+  selected = false,
 }) {
   return (
     <button
-      className="clusterCard"
+      className={`clusterCard${selected ? " clusterCardSelected" : ""}`}
       onClick={() => onClick(cluster.id)}
-      style={{
-        minHeight: `${Math.max(
-          80,
-          cluster.intensity
-        )}px`,
-      }}
     >
-      <span className="clusterDate">
-        {formatDate(cluster.startTime)}
-      </span>
-
-      <strong>
+      <strong className="clusterLabel">
         {cluster.label}
       </strong>
 
-      <span>
-        {cluster.articleCount} articles
+      <span className="articleCount">
+        {cluster.articleCount}{" "}
+        {cluster.articleCount === 1
+          ? "article"
+          : "articles"}
       </span>
-
-      <small>
-        {formatDate(cluster.endTime)}
-      </small>
     </button>
   );
-}
-
-
-function formatDate(value) {
-  return new Date(value).toLocaleString();
 }

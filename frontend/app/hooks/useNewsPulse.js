@@ -1,3 +1,7 @@
+
+
+
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,73 +15,78 @@ import {
 } from "../lib/api";
 
 export function useNewsPulse() {
-  // Timeline data
-
   const [timeline, setTimeline] = useState([]);
-
-  // Currently selected cluster
-
   const [selectedCluster, setSelectedCluster] = useState(null);
-
-  // Available news sources
-
+  const [allArticles, setAllArticles] = useState([]);
   const [sources, setSources] = useState([]);
-
-  // Currently selected sources
-
   const [selectedSources, setSelectedSources] = useState([]);
-
-  // Initial page loading
-
-  const [loading, setLoading] = useState(true);
-
-  // Refresh button loading
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Error message
-
   const [error, setError] = useState("");
-
-  // Load data when page opens
 
   useEffect(() => {
     loadData();
-  }, []);
 
-  // Load timeline + sources
+    const interval = setInterval(() => {
+      refreshData();
+    }, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   async function loadData() {
     try {
-      setLoading(true);
-
       setError("");
 
       const timelineData = await getTimeline();
-
       setTimeline(timelineData);
 
       const sourceData = await getSources();
-
       setSources(sourceData);
+      setSelectedSources((current) => {
+        const allWereSelected =
+          sources.length > 0 &&
+          current.length === sources.length;
 
-      // Initially select all sources
+        if (current.length === 0 || allWereSelected) {
+          return sourceData;
+        }
 
-      setSelectedSources(sourceData);
+        return sourceData.filter((source) =>
+          current.includes(source)
+        );
+      });
+
+      const clusterDetails = await Promise.all(
+        timelineData.map((cluster) =>
+          getCluster(cluster.id)
+        )
+      );
+
+      const articles = clusterDetails.flatMap(
+        (cluster) => cluster.articles || []
+      );
+
+      setAllArticles(articles);
     } catch (error) {
       setError(error.message);
-    } finally {
-      setLoading(false);
     }
   }
-
-  // Open selected cluster
 
   async function openCluster(clusterId) {
     try {
       setError("");
+      setSearchQuery("");
 
-      const data = await getCluster(clusterId);
+      let data;
+
+      try {
+        data = await getCluster(clusterId);
+      } catch (firstError) {
+        await loadData();
+        data = await getCluster(clusterId);
+      }
 
       setSelectedCluster(data);
     } catch (error) {
@@ -85,68 +94,64 @@ export function useNewsPulse() {
     }
   }
 
-  // Close cluster details
-
   function closeCluster() {
     setSelectedCluster(null);
   }
 
-  // Toggle one source
-
   function toggleSource(source) {
     setSelectedSources((current) => {
-      if (current.includes(source)) {
-        return current.filter((item) => item !== source);
+      const next = new Set(current);
+
+      if (next.has(source)) {
+        next.delete(source);
+      } else {
+        next.add(source);
       }
 
-      return [...current, source];
+      return Array.from(next);
     });
-  }
 
-  // Toggle all sources
+    setSelectedCluster(null);
+  }
 
   function toggleAllSources() {
-    if (selectedSources.length === sources.length) {
-      setSelectedSources([]);
-    } else {
-      setSelectedSources(sources);
-    }
-  }
+    const allCurrentlySelected =
+      selectedSources.length === sources.length;
 
-  // Refresh news data
+    setSelectedSources(
+      allCurrentlySelected ? [] : [...sources]
+    );
+    setSelectedCluster(null);
+  }
 
   async function refreshData() {
     try {
       setRefreshing(true);
-
       setError("");
-
-      // Start ingestion
 
       const job = await triggerIngestion();
 
       let status = "running";
 
-      // Keep checking until job finishes
-
       while (status === "running") {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 2000)
+        );
 
-        const statusData = await getIngestionStatus(job.jobId);
+        const statusData =
+          await getIngestionStatus(job.jobId);
 
         status = statusData.status;
 
         if (status === "failed") {
-          throw new Error(statusData.error || "Ingestion failed");
+          throw new Error(
+            statusData.error ||
+              "Ingestion failed"
+          );
         }
       }
 
-      // Load fresh data
-
       await loadData();
-
-      // Close currently opened cluster
-
       setSelectedCluster(null);
     } catch (error) {
       setError(error.message);
@@ -155,45 +160,101 @@ export function useNewsPulse() {
     }
   }
 
-  // Articles visible after source filtering
-
   const visibleArticles = useMemo(() => {
-    if (!selectedCluster) {
+    const allSelected =
+      sources.length > 0 &&
+      selectedSources.length === sources.length;
+
+    const newestFirst = (articles) =>
+      [...articles].sort(
+        (a, b) =>
+          new Date(b.publishedAt).getTime() -
+          new Date(a.publishedAt).getTime()
+      );
+
+    const matchesSearch = (article) => {
+      const query = searchQuery.trim().toLowerCase();
+
+      if (!query) {
+        return true;
+      }
+
+      return [
+        article.title,
+        article.summary,
+        article.source,
+      ]
+        .filter(Boolean)
+        .some((value) =>
+          value.toLowerCase().includes(query)
+        );
+    };
+
+    if (selectedSources.length === 0) {
       return [];
     }
 
-    return selectedCluster.articles.filter((article) =>
-      selectedSources.includes(article.source),
-    );
-  }, [selectedCluster, selectedSources]);
+    if (searchQuery.trim()) {
+      return newestFirst(
+        allArticles.filter(
+          (article) =>
+            selectedSources.includes(article.source) &&
+            matchesSearch(article)
+        )
+      );
+    }
 
-  // Return everything page needs
+    if (selectedCluster) {
+      if (allSelected) {
+        return newestFirst(
+          (selectedCluster.articles || allArticles).filter(
+            matchesSearch
+          )
+        );
+      }
+
+      return newestFirst(
+        (selectedCluster.articles || []).filter(
+          (article) =>
+            selectedSources.includes(article.source) &&
+            matchesSearch(article)
+        )
+      );
+    }
+
+    if (allSelected) {
+      return newestFirst(allArticles.filter(matchesSearch));
+    }
+
+    return newestFirst(
+      allArticles.filter((article) =>
+        selectedSources.includes(article.source) &&
+        matchesSearch(article)
+      )
+    );
+  }, [
+    selectedCluster,
+    selectedSources,
+    allArticles,
+    sources,
+    searchQuery,
+  ]);
 
   return {
     timeline,
-
     selectedCluster,
-
     sources,
-
     selectedSources,
-
+    searchQuery,
+    setSearchQuery,
     visibleArticles,
-
     loading,
-
     refreshing,
-
     error,
-
     openCluster,
-
     closeCluster,
-
     toggleSource,
-
     toggleAllSources,
-
     refreshData,
   };
 }

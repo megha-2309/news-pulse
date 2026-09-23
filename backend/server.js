@@ -10,6 +10,9 @@ const app = express();
 
 const PORT = process.env.PORT || 4000;
 
+const NEWS_START = "2026-09-18T00:00:00Z";
+const NEWS_END = "2026-09-24T00:00:00Z";
+
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -54,11 +57,14 @@ app.get("/clusters", (req, res) => {
           FROM clusters c
           LEFT JOIN articles a
             ON a.cluster_id = c.id
+            AND a.published_at >= ?
+            AND a.published_at < ?
           GROUP BY c.id
+          HAVING COUNT(a.id) > 0
           ORDER BY startTime DESC
           `,
       )
-      .all();
+      .all(NEWS_START, NEWS_END);
 
     res.json(clusters);
   } catch (error) {
@@ -86,9 +92,16 @@ app.get("/clusters/:id", (req, res) => {
             label
           FROM clusters
           WHERE id = ?
+            AND EXISTS (
+              SELECT 1
+              FROM articles
+              WHERE articles.cluster_id = clusters.id
+                AND articles.published_at >= ?
+                AND articles.published_at < ?
+            )
           `,
       )
-      .get(req.params.id);
+      .get(req.params.id, NEWS_START, NEWS_END);
 
     if (!cluster) {
       return res.status(404).json({
@@ -110,11 +123,13 @@ app.get("/clusters/:id", (req, res) => {
               AS publishedAt
           FROM articles
           WHERE cluster_id = ?
+            AND published_at >= ?
+            AND published_at < ?
           ORDER BY
             published_at ASC
           `,
       )
-      .all(req.params.id);
+      .all(req.params.id, NEWS_START, NEWS_END);
 
     res.json({
       ...cluster,
@@ -143,10 +158,12 @@ app.get("/sources", (req, res) => {
           SELECT DISTINCT
             source
           FROM articles
+          WHERE published_at >= ?
+            AND published_at < ?
           ORDER BY source ASC
           `,
       )
-      .all();
+      .all(NEWS_START, NEWS_END);
 
     res.json(sources.map((item) => item.source));
   } catch (error) {
@@ -181,11 +198,13 @@ app.get("/timeline", (req, res) => {
           FROM clusters c
           JOIN articles a
             ON a.cluster_id = c.id
+            AND a.published_at >= ?
+            AND a.published_at < ?
           GROUP BY c.id
           ORDER BY startTime ASC
           `,
       )
-      .all();
+      .all(NEWS_START, NEWS_END);
 
     const formatted = timeline.map((cluster) => {
       const intensity = Math.min(100, cluster.articleCount * 15);

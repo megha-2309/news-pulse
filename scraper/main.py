@@ -174,9 +174,10 @@ def process_feed(feed_config):
 
     saved_count = 0
 
-    entries = feed.entries[
-        :MAX_ARTICLES_PER_FEED
-    ]
+    entries = feed.entries
+
+    if MAX_ARTICLES_PER_FEED > 0:
+        entries = entries[:MAX_ARTICLES_PER_FEED]
 
     for entry in entries:
 

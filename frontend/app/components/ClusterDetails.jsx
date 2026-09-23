@@ -4,6 +4,7 @@ export default function ClusterDetails({
   cluster,
   visibleArticles,
   onClose,
+  searchQuery,
 }) {
   return (
     <section className="details">
@@ -40,6 +41,7 @@ export default function ClusterDetails({
           <ArticleCard
             key={article.id}
             article={article}
+            searchQuery={searchQuery}
           />
 
         ))}
