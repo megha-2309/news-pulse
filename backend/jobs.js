@@ -1,16 +1,13 @@
+
 const {
   spawn
 } = require("child_process");
 
-
 const path = require("path");
-
 
 const jobs = new Map();
 
-
 function createJobId() {
-
   return (
     `${Date.now()}-` +
     `${Math.random()
@@ -19,12 +16,9 @@ function createJobId() {
   );
 }
 
-
 function startIngestionJob() {
-
   const jobId =
     createJobId();
-
 
   jobs.set(
     jobId,
@@ -45,7 +39,6 @@ function startIngestionJob() {
     }
   );
 
-
   const scraperDirectory =
     path.join(
       __dirname,
@@ -53,11 +46,15 @@ function startIngestionJob() {
       "scraper"
     );
 
-
-const pythonCommand =
-  process.platform === "win32"
-    ? path.join(scraperDirectory, ".venv", "Scripts", "python.exe")
-    : path.join(scraperDirectory, ".venv", "bin", "python");
+  const pythonCommand =
+    process.platform === "win32"
+      ? path.join(
+          scraperDirectory,
+          ".venv",
+          "Scripts",
+          "python.exe"
+        )
+      : "/opt/venv/bin/python";
 
   const pythonProcess =
     spawn(
@@ -69,63 +66,73 @@ const pythonCommand =
       }
     );
 
-
   let output = "";
-
 
   pythonProcess.stdout.on(
     "data",
     (data) => {
-
       output +=
         data.toString();
-
     }
   );
-
 
   pythonProcess.stderr.on(
     "data",
     (data) => {
-
       output +=
         data.toString();
-
     }
   );
 
-
   pythonProcess.on(
-    "close",
-    (code) => {
-
+    "error",
+    (error) => {
       const job =
-        jobs.get(
-          jobId
-        );
-
+        jobs.get(jobId);
 
       if (!job) {
         return;
       }
 
+      job.status =
+        "failed";
 
       job.finishedAt =
-        new Date()
-          .toISOString();
+        new Date().toISOString();
 
+      job.error =
+        error.message;
 
       job.output =
         output;
 
+      jobs.set(
+        jobId,
+        job
+      );
+    }
+  );
+
+  pythonProcess.on(
+    "close",
+    (code) => {
+      const job =
+        jobs.get(jobId);
+
+      if (!job) {
+        return;
+      }
+
+      job.finishedAt =
+        new Date().toISOString();
+
+      job.output =
+        output;
 
       if (code === 0) {
-
         job.status =
           "completed";
-
       } else {
-
         job.status =
           "failed";
 
@@ -133,32 +140,24 @@ const pythonCommand =
           `Python process exited with code ${code}`;
       }
 
-
       jobs.set(
         jobId,
         job
       );
-
     }
   );
-
 
   return jobId;
 }
 
-
-function getJobStatus(
-  jobId
-) {
-
+function getJobStatus(jobId) {
   return jobs.get(
     jobId
   );
-
 }
-
 
 module.exports = {
   startIngestionJob,
   getJobStatus,
 };
+
