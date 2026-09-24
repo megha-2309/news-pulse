@@ -10,6 +10,7 @@ import {
   getTimeline,
   getSources,
   getCluster,
+  getArticles,
   triggerIngestion,
   getIngestionStatus,
 } from "../lib/api";
@@ -58,16 +59,8 @@ export function useNewsPulse() {
         );
       });
 
-      const clusterDetails = await Promise.all(
-        timelineData.map((cluster) =>
-          getCluster(cluster.id)
-        )
-      );
-
-      const articles = clusterDetails.flatMap(
-        (cluster) => cluster.articles || []
-      );
-
+      // Load articles independently. A transient cluster 404 must not break the page.
+      const articles = await getArticles();
       setAllArticles(articles);
     } catch (error) {
       setError(error.message);
