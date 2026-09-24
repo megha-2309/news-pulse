@@ -4,7 +4,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   getTimeline,
@@ -25,6 +25,7 @@ export function useNewsPulse() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const requestVersion = useRef(0);
 
   useEffect(() => {
     loadData();
@@ -36,38 +37,47 @@ export function useNewsPulse() {
     return () => clearInterval(interval);
   }, []);
 
-  async function loadData() {
-    try {
-      setError("");
+async function loadData() {
+  const currentRequestVersion = ++requestVersion.current;
 
-      const timelineData = await getTimeline();
-      setTimeline(timelineData);
+  try {
+    setError("");
 
-      const sourceData = await getSources();
-      setSources(sourceData);
-      setSelectedSources((current) => {
-        const allWereSelected =
-          sources.length > 0 &&
-          current.length === sources.length;
+    const timelineData = await getTimeline();
+    setTimeline(timelineData);
 
-        if (current.length === 0 || allWereSelected) {
-          return sourceData;
-        }
+    const sourceData = await getSources();
+    setSources(sourceData);
 
-        return sourceData.filter((source) =>
-          current.includes(source)
-        );
-      });
+    setSelectedSources((current) => {
+      const allWereSelected =
+        current.length === sources.length;
 
-      // Load articles independently. A transient cluster 404 must not break the page.
-      const articles = await getArticles();
-      setAllArticles(articles);
-    } catch (error) {
+      if (current.length === 0 || allWereSelected) {
+        return sourceData;
+      }
+
+      return sourceData.filter((source) =>
+        current.includes(source)
+      );
+    });
+
+    const articles = await getArticles();
+    setAllArticles(articles);
+  } catch (error) {
+    if (currentRequestVersion === requestVersion.current) {
       setError(error.message);
     }
   }
+}
 
   async function openCluster(clusterId) {
+    if (refreshing) {
+      return;
+    }
+
+    const currentRequestVersion = ++requestVersion.current;
+
     try {
       setError("");
       setSearchQuery("");
@@ -81,7 +91,9 @@ export function useNewsPulse() {
         data = await getCluster(clusterId);
       }
 
-      setSelectedCluster(data);
+      if (currentRequestVersion === requestVersion.current) {
+        setSelectedCluster(data);
+      }
     } catch (error) {
       setError(error.message);
     }
@@ -119,6 +131,8 @@ export function useNewsPulse() {
 
   async function refreshData() {
     try {
+      requestVersion.current += 1;
+      setSelectedCluster(null);
       setRefreshing(true);
       setError("");
 
@@ -145,7 +159,6 @@ export function useNewsPulse() {
       }
 
       await loadData();
-      setSelectedCluster(null);
     } catch (error) {
       setError(error.message);
     } finally {

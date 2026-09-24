@@ -102,14 +102,47 @@ def article_exists(url):
     return row is not None
 
 
+def refresh_article(article):
+    """
+    Refresh RSS metadata for an existing article URL.
+    """
+
+    connection = get_connection()
+
+    try:
+        result = connection.execute(
+            """
+            UPDATE articles
+            SET title = ?,
+                summary = ?,
+                source = ?,
+                published_at = ?
+            WHERE url = ?
+            """,
+            (
+                article["title"],
+                article["summary"],
+                article["source"],
+                article["published_at"],
+                article["url"],
+            ),
+        )
+
+        connection.commit()
+
+        return result.rowcount > 0
+
+    finally:
+        connection.close()
+
+
 def save_article(article):
     """
     Save an article if it doesn't already exist.
     """
 
-    if article_exists(
-        article["url"]
-    ):
+    if article_exists(article["url"]):
+        refresh_article(article)
         return False
 
     body = extract_article_body(
