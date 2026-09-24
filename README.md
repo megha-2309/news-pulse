@@ -1,77 +1,112 @@
-# News Pulse
+# News Pulse — Topic-Clustered News Timeline
 
-News Pulse is a full-stack news monitoring application that collects articles from RSS feeds, groups related stories, and presents them in a web dashboard.
+News Pulse is a full-stack application that collects live news from multiple RSS feeds, groups related articles into topic clusters, and displays them on a visual timeline.
 
-## Overview
+## Live Demo
 
-- Scrapes and stores news articles from configured sources
-- Groups similar stories together using clustering logic
-- Exposes data through a backend API
-- Displays the results in a frontend interface for browsing and filtering
+**Frontend:** https://frontend-eight-brown-83.vercel.app/
 
-## Project Structure
-
-- `backend/` – API server and data access logic
-- `frontend/` – Next.js web application
-- `scraper/` – feed scraping, grouping, and database initialization logic
-- `data/` – local data storage or generated datasets
-- `Dockerfile` – container setup for the app
+**Backend:** https://news-pulse-ff0m.onrender.com
 
 ## Tech Stack
 
-- Python for the scraper pipeline
-- Node.js for the backend API
-- Next.js for the frontend interface
-- SQLite or similar local database storage for article and grouping data
+* **Scraper:** Python, feedparser, trafilatura
+* **Backend:** Node.js, Express.js, SQLite
+* **Frontend:** Next.js, React, CSS
+* **Deployment:** Vercel (Frontend), Render (Backend)
 
-## Getting Started
+## Project Structure
 
-### 1. Install dependencies
+```text
+news-pulse/
+├── scraper/     # RSS ingestion, article extraction & clustering
+├── backend/     # Express REST API
+├── frontend/    # Next.js frontend
+├── Dockerfile
+└── README.md
+```
 
-Backend:
+## How It Works
+
+1. Python fetches articles from RSS feeds.
+2. RSS data is normalized into a common format.
+3. The scraper attempts to extract the full article content.
+4. Duplicate articles are skipped during repeated runs.
+5. Related articles are grouped using keyword overlap.
+6. Articles and clusters are stored in SQLite.
+7. Express APIs serve the data to the frontend.
+8. Next.js displays the clusters on a timeline.
+
+## News Sources
+
+* BBC News
+* NPR
+* The Guardian
+
+## Topic Grouping
+
+I used a **keyword-overlap approach** instead of TF-IDF because it is simple, transparent, and suitable for the scope of this project.
+
+Article headlines and summaries are normalized by converting text to lowercase, removing punctuation and common stop words, and extracting meaningful words. Articles with sufficient meaningful-word overlap are grouped into the same topic cluster.
+
+The cluster label is generated from the representative keywords of the grouped articles.
+
+**Limitation:** Articles covering the same story may use different vocabulary, so keyword overlap can sometimes fail to recognize them as related.
+
+## API Endpoints
+
+| Method | Endpoint                | Purpose                          |
+| ------ | ----------------------- | -------------------------------- |
+| GET    | `/clusters`             | List topic clusters              |
+| GET    | `/clusters/:id`         | Get cluster details and articles |
+| GET    | `/timeline`             | Timeline-ready cluster data      |
+| GET    | `/sources`              | List available sources           |
+| GET    | `/articles`             | List articles                    |
+| POST   | `/ingest/trigger`       | Start ingestion                  |
+| GET    | `/ingest/status/:jobId` | Check ingestion status           |
+
+## Local Setup
+
+### Backend
 
 ```bash
 cd backend
 npm install
+node server.js
 ```
 
-Frontend:
-
-```bash
-cd frontend
-npm install
-```
-
-Scraper:
+### Scraper
 
 ```bash
 cd scraper
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 2. Run the scraper
-
-```bash
-cd scraper
 python main.py
 ```
 
-### 3. Run the backend
-
-```bash
-cd backend
-node server.js
-```
-
-### 4. Run the frontend
+### Frontend
 
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
-## Notes
+The frontend runs on `http://localhost:3000` and the backend on `http://localhost:4000` by default.
 
-This project is designed to aggregate and cluster news coverage so users can see related stories together and explore them through a simple interface.
+## Deployment
+
+* **Frontend:** Vercel
+* **Backend:** Render
+* **Database:** SQLite
+* **Containerization:** Docker
+
+Environment-specific configuration is provided through environment variables and is not committed to the repository.
+
+## Future Improvements
+
+* Semantic similarity for better story grouping
+* Automatic scheduled ingestion
+* Improved article extraction
+* More advanced timeline interactions
