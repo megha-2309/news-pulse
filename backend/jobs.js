@@ -6,6 +6,7 @@ const {
 const path = require("path");
 
 const jobs = new Map();
+let activeJobId = null;
 
 function createJobId() {
   return (
@@ -17,6 +18,14 @@ function createJobId() {
 }
 
 function startIngestionJob() {
+  if (activeJobId) {
+    const activeJob = jobs.get(activeJobId);
+    if (activeJob?.status === "running") {
+      return activeJobId;
+    }
+    activeJobId = null;
+  }
+
   const jobId =
     createJobId();
 
@@ -110,6 +119,7 @@ function startIngestionJob() {
         jobId,
         job
       );
+      activeJobId = null;
     }
   );
 
@@ -144,8 +154,11 @@ function startIngestionJob() {
         jobId,
         job
       );
+      activeJobId = null;
     }
   );
+
+  activeJobId = jobId;
 
   return jobId;
 }
