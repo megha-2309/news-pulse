@@ -37,6 +37,19 @@ export async function getSources() {
 }
 
 
+// Get all articles
+
+export async function getArticles() {
+  const response = await fetch(`${API_URL}/articles`);
+
+  if (!response.ok) {
+    throw new Error("Failed to load articles");
+  }
+
+  return response.json();
+}
+
+
 // Get one cluster
 
 export async function getCluster(
