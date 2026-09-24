@@ -1,6 +1,4 @@
 
-import uuid
-
 from database import get_connection
 
 
@@ -969,9 +967,8 @@ def rebuild_clusters():
 
     for category in TOPIC_GROUPS:
 
-        cluster_id = str(
-            uuid.uuid4()
-        )
+        # Stable IDs prevent cluster-click failures when clusters are rebuilt.
+        cluster_id = category.lower().replace("&", "and").replace(",", "").replace(" ", "-")
 
         connection.execute(
             """
