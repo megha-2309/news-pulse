@@ -78,6 +78,43 @@ app.get("/clusters", (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
+| GET /articles
+|--------------------------------------------------------------------------
+*/
+
+app.get("/articles", (req, res) => {
+  try {
+    const articles = db
+      .prepare(
+        `
+          SELECT
+            id,
+            title,
+            summary,
+            body,
+            source,
+            url,
+            published_at AS publishedAt
+          FROM articles
+          WHERE published_at >= ?
+            AND published_at < ?
+          ORDER BY published_at DESC
+        `,
+      )
+      .all(NEWS_START, NEWS_END);
+
+    res.json(articles);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to fetch articles",
+    });
+  }
+});
+
+/*
+|--------------------------------------------------------------------------
 | GET /clusters/:id
 |--------------------------------------------------------------------------
 */
